@@ -1,6 +1,7 @@
 from sqlalchemy import Column, String, JSON, DateTime, ForeignKey
 from sqlalchemy.sql import func
-from database import Base
+from .database import Base
+import uuid
 
 class Client(Base):
     __tablename__ = "clients"
@@ -12,9 +13,9 @@ class Client(Base):
 
 class Task(Base):
     __tablename__ = "tasks"
-    id = Column(String, primary_key=True, index=True)
+    id = Column(String, primary_key=True, index=True, default=lambda: str(uuid.uuid4()))
     module = Column(String)
     payload = Column(JSON)
-    status = Column(String)
+    status = Column(String, default ="pending")
     assigned_to = Column(String, ForeignKey("clients.node_id"), nullable=True)
     result = Column(JSON, nullable=True)

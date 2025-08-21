@@ -1,9 +1,9 @@
 from fastapi import FastAPI, Depends, HTTPException
 from sqlalchemy.orm import Session
-from database import SessionLocal, engine
-from models import Base, Client, Task
-from schemas import ClientRegister, Heartbeat, TaskResult, TaskSchema
-import uuid
+from .database import SessionLocal, engine
+from .models import Base, Client, Task
+from .schemas import ClientRegister, Heartbeat, ClientSchema, TaskResult, TaskSchema, TaskCreate
+
 
 app = FastAPI()
 Base.metadata.create_all(bind=engine)
@@ -15,7 +15,7 @@ def get_db():
     finally:
         db.close()
 
-@app.post("/register")
+@app.post("/register", response_model=TaskSchema)
 def register_client(client: ClientRegister, db: Session = Depends(get_db)):
     db_client = db.query(Client).filter(Client.node_id == client.node_id).first()
     if not db_client:
@@ -31,18 +31,18 @@ def register_client(client: ClientRegister, db: Session = Depends(get_db)):
         db_client.installed_modules = client.installed_modules
         db_client.status = "idle"
     db.commit()
-    return {"message": "Registered"}
+    return db_client
 
-@app.post("/heartbeat")
+@app.post("/heartbeat", response_model=ClientSchema)
 def heartbeat(hb: Heartbeat, db: Session = Depends(get_db)):
     client = db.query(Client).filter(Client.node_id == hb.node_id).first()
     if not client:
         raise HTTPException(404, "Client not found")
     client.status = hb.status
     db.commit()
-    return {"message": "Heartbeat received"}
+    return client
 
-@app.post("/get-task")
+@app.post("/get-task", response_model=TaskSchema)
 def get_task(node_id: str, db: Session = Depends(get_db)):
     task = db.query(Task).filter(Task.assigned_to == None).first()
     if not task:
@@ -50,9 +50,21 @@ def get_task(node_id: str, db: Session = Depends(get_db)):
     task.assigned_to = node_id
     task.status = "running"
     db.commit()
-    return TaskSchema.from_orm(task)
+    return task
 
-@app.post("/submit-result")
+@app.post("/create-task", response_model=TaskSchema)
+def create_task(task_data: TaskCreate, db: Session = Depends(get_db)):
+    new_task = Task(
+        module=task_data.module,
+        payload=task_data.payload,
+        status="pending"
+    )
+    db.add(new_task)
+    db.commit()
+    db.refresh(new_task)
+    return new_task
+    
+@app.post("/submit-result", response_model=TaskSchema)
 def submit_result(result: TaskResult, db: Session = Depends(get_db)):
     task = db.query(Task).filter(Task.id == result.task_id).first()
     if not task:
@@ -60,12 +72,12 @@ def submit_result(result: TaskResult, db: Session = Depends(get_db)):
     task.status = "completed"
     task.result = result.result
     db.commit()
-    return {"message": "Result submitted"}
+    return task
 
-@app.get("/clients")
+@app.get("/clients", response_model=list[ClientSchema])
 def get_clients(db: Session = Depends(get_db)):
     return db.query(Client).all()
 
-@app.get("/tasks")
+@app.get("/tasks", response_model=list[TaskSchema])
 def get_tasks(db: Session = Depends(get_db)):
     return db.query(Task).all()
