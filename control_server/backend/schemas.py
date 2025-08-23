@@ -1,10 +1,13 @@
 from pydantic import BaseModel, ConfigDict
-from typing import Optional, List, Dict
+from typing import Optional 
+from datetime import datetime
+
+# Pydantic Schemas
 
 class ClientRegister(BaseModel):
-    node_id: str
-    hardware: Dict
-    installed_modules: List[str]
+    #node_id: str
+    hardware: dict[str,str]
+    installed_modules: list[str]
     model_config = ConfigDict(from_attributes=True)
 
 class Heartbeat(BaseModel):
@@ -15,9 +18,9 @@ class Heartbeat(BaseModel):
 class ClientSchema(BaseModel):
     node_id: str
     status: str
-    hardware: Dict
-    installed_modules: List[str]
-    last_seen: Optional[str] = None
+    hardware: dict[str,str]
+    installed_modules: list[str]
+    last_seen: Optional[datetime] = None
     model_config = ConfigDict(from_attributes=True)
 
 class TaskSchema(BaseModel):

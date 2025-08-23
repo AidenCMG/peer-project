@@ -3,7 +3,7 @@ from sqlalchemy.orm import Session
 from .database import SessionLocal, engine
 from .models import Base, Client, Task
 from .schemas import ClientRegister, Heartbeat, ClientSchema, TaskResult, TaskSchema, TaskCreate
-
+import uuid
 
 app = FastAPI()
 Base.metadata.create_all(bind=engine)
@@ -15,21 +15,15 @@ def get_db():
     finally:
         db.close()
 
-@app.post("/register", response_model=TaskSchema)
+@app.post("/register", response_model=ClientSchema)
 def register_client(client: ClientRegister, db: Session = Depends(get_db)):
-    db_client = db.query(Client).filter(Client.node_id == client.node_id).first()
-    if not db_client:
-        db_client = Client(
-            node_id=client.node_id,
-            hardware=client.hardware,
-            installed_modules=client.installed_modules,
-            status="idle"
+    db_client = Client(
+        node_id=str(uuid.uuid4()),
+        hardware=client.hardware,
+        installed_modules=client.installed_modules,
+        status="idle"
         )
-        db.add(db_client)
-    else:
-        db_client.hardware = client.hardware
-        db_client.installed_modules = client.installed_modules
-        db_client.status = "idle"
+    db.add(db_client)
     db.commit()
     return db_client
 
@@ -39,6 +33,7 @@ def heartbeat(hb: Heartbeat, db: Session = Depends(get_db)):
     if not client:
         raise HTTPException(404, "Client not found")
     client.status = hb.status
+    client.installed_modules = hb.installed_modules
     db.commit()
     return client
 

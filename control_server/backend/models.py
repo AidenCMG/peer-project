@@ -3,6 +3,8 @@ from sqlalchemy.sql import func
 from .database import Base
 import uuid
 
+#SQLAlchemy Models
+
 class Client(Base):
     __tablename__ = "clients"
     node_id = Column(String, primary_key=True, index=True)
