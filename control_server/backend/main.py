@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends, HTTPException
+from fastapi import FastAPI, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 from .database import SessionLocal, engine
 from .models import Base, Client, Task
@@ -15,6 +15,10 @@ def get_db():
     finally:
         db.close()
 
+def localhost_only(request: Request): #Make sure to configure proxy correctly or this won't work
+    if request.client.host not in ("127.0.0.1", "::1"):
+        raise HTTPException(status_code=403, detail="Forbidden")
+    
 @app.post("/register", response_model=ClientSchema)
 def register_client(client: ClientRegister, db: Session = Depends(get_db)):
     db_client = Client(
@@ -33,7 +37,7 @@ def heartbeat(hb: Heartbeat, db: Session = Depends(get_db)):
     if not client:
         raise HTTPException(404, "Client not found")
     client.status = hb.status
-    client.installed_modules = hb.installed_modules
+    #client.installed_modules = hb.installed_modules
     db.commit()
     return client
 
@@ -47,8 +51,8 @@ def get_task(node_id: str, db: Session = Depends(get_db)):
     db.commit()
     return task
 
-@app.post("/create-task", response_model=TaskSchema)
-def create_task(task_data: TaskCreate, db: Session = Depends(get_db)):
+@app.post("/admin/create-task", response_model=TaskSchema)
+def create_task(task_data: TaskCreate, db: Session = Depends(get_db), _: None = Depends(localhost_only)):
     new_task = Task(
         module=task_data.module,
         payload=task_data.payload,
@@ -69,10 +73,10 @@ def submit_result(result: TaskResult, db: Session = Depends(get_db)):
     db.commit()
     return task
 
-@app.get("/clients", response_model=list[ClientSchema])
-def get_clients(db: Session = Depends(get_db)):
+@app.get("/admin/clients", response_model=list[ClientSchema])
+def get_clients(db: Session = Depends(get_db), _: None = Depends(localhost_only)):
     return db.query(Client).all()
 
-@app.get("/tasks", response_model=list[TaskSchema])
-def get_tasks(db: Session = Depends(get_db)):
+@app.get("/admin/tasks", response_model=list[TaskSchema])
+def get_tasks(db: Session = Depends(get_db), _: None = Depends(localhost_only)):
     return db.query(Task).all()
