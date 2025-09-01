@@ -1,0 +1,4 @@
+*.sqlite3
+control_server/backend/__pycache__/
+control_server/frontend/__pycache__/
+control_server/frontend/experimental/
