@@ -2,7 +2,6 @@
 import requests
 import shlex
 import argparse
-import json
 import time
 import sys
 
@@ -13,17 +12,38 @@ SERVER_URL = "http://127.0.0.1:8000"
 def create_task(command_args: list):
     parser = argparse.ArgumentParser(prog="create_task", description="Creates a new task on the server")
     parser.add_argument("--module", required=True, help="The name of the module for the task.")
-    parser.add_argument("--payload", required=True, help="A JSON string representing the task's payload.")
 
+    formatted_payload = getPayload()
     args=parser.parse_args(command_args)
 
     data = {
         "module": args.module,
-        "payload": json.loads(args.payload)
+        "payload": formatted_payload
     }
     requests.post(f"{SERVER_URL}/admin/create-task", json=data)
 
+def getPayload():
+    keepGoing = True
+    data_holder = []
 
+    while(keepGoing):
+        field_name = input("Enter the name of the first field: ")
+        field_value = input("Enter the fields value: ")
+        data_holder.extend([field_name,field_value])
+
+        response = input("Enter another field?\n1) Yes\n2) No\n")
+        if response == "2":
+            keepGoing = False
+            return formatPayload(data_holder)
+            
+
+def formatPayload(payload: list):
+    formatted_payload = {}
+    for i in range(0,len(payload),2):
+        formatted_payload[payload[i]] = payload[i+1]
+    return formatted_payload
+
+    
 def list_tasks(_):
     response = requests.get(f"{SERVER_URL}/admin/tasks")
     all_tasks = response.json()
@@ -80,5 +100,5 @@ def run():
             command = args[0]
             command_args = args[1:]
             command_mapper[command](command_args)
-
+print(formatPayload(["key1","name","key2","food"]))
 run()
