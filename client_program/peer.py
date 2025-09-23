@@ -29,15 +29,20 @@ def register_client():
     
     
 def get_new_task():
-    response = requests.post(f"{SERVER_URL}/get-task",params={"node_id": id})
+    response = requests.post(f"{SERVER_URL}/get-task",params={"node_id": client_state["id"]})
     task_data = response.json()
-    client_state["currentStatus"] = "busy"
-    print(response.text)
-    print(task_data["payload"]["image"]["file"])
-    global current_tasks
-    current_tasks.append(task_data)
+    if "detail" not in task_data:
+        print(response.text)
+        print(task_data["payload"]["image"]["file"])
+        client_state["current_tasks"].append(task_data)
+        return True
 
-def send_heartbeat():
+    return False
+
+
+
+
+def send_heartbeat(): #Currently heartbeat is the only way the client status is updated.
     data = {
     "node_id": client_state["id"],
     "status": client_state["currentStatus"]
@@ -47,17 +52,13 @@ def send_heartbeat():
     
 def submit_result():
     data = {
-        "task_id": current_tasks[0]["id"],
+        "task_id": client_state["current_tasks"][0]["id"],
         "result": {
             "output": "placeholder output"
         }
     }
     response = requests.post(f"{SERVER_URL}/submit-result", json=data)
 
-def check_for_task():
-    if client_state["currentStatus"] == "idle":
-        if get_new_task() != None:
-            return True
 
 def heartbeat_worker():
     while True:
@@ -66,7 +67,9 @@ def heartbeat_worker():
 
 
 def main():
-    register_client()
+    register_client() #Make this one time only
+    #Best way to do this?
+    #config file?
 
     heartbeat_thread = threading.Thread(target=heartbeat_worker, daemon=True)
     heartbeat_thread.start()
@@ -74,13 +77,15 @@ def main():
     keepGoing = True
     while keepGoing:
         if client_state["currentStatus"] == "idle":
-            task = get_new_task()
+            got_task = get_new_task()
 
-            if task != None:
+            if got_task:
                 client_state["currentStatus"] = "busy"
+                send_heartbeat()
                 #solve task
                 submit_result()
                 client_state["currentStatus"] = "idle"
+                send_heartbeat()
             else:
                 time.sleep(check_for_task_interval)
 
