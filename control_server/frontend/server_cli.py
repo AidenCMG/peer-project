@@ -31,7 +31,8 @@ def batch_create(command_args: list):
     args=parser.parse_args(command_args)
  
     payload_data = get_module_fields()
-    chunker = make_chunker(int(args.chunks),args.label) #make this upload specified filepath instead of returning list
+    
+    chunker = make_chunker(int(args.chunks)) #make this upload specified filepath instead of returning list
     
     for chunk in chunker:
         payload_data[args.label] = chunk
@@ -65,7 +66,7 @@ def get_module_fields():
             keepGoing = False
             return data_holder
         
-def make_chunker(chunk_size: int, label: str):
+def make_chunker(chunk_size: int):
     path = Path(input("Enter path to file/files: "))
     if path.is_dir():
         directory_contents = list(path.iterdir())
@@ -100,6 +101,7 @@ def make_chunker(chunk_size: int, label: str):
 def list_tasks(_):
     response = requests.get(f"{SERVER_URL}/admin/tasks")
     all_tasks = response.json()
+    print(all_tasks)
     for task in all_tasks:
         print(f"ID: {task["id"]}\nModule: {task["module"]}\nPayload: {task["payload"]}\nStatus: {task["status"]}\nAssigned to: {task["assigned_to"]}\n")
 
