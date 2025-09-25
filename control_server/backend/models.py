@@ -20,4 +20,6 @@ class Task(Base):
     payload = Column(JSON)
     status = Column(String, default ="pending")
     assigned_to = Column(String, ForeignKey("clients.node_id"), nullable=True)
-    result = Column(JSON, nullable=True)
+    verified_by = Column(String, ForeignKey("clients.node_id"), nullable=True)
+    result1 = Column(JSON, nullable=True)
+    result2 = Column(JSON, nullable=True)
