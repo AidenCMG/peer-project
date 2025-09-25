@@ -18,6 +18,14 @@ Anyone is welcome to create a new module. All modules will be reviewed before be
 - Give admin cli more features  
 - Module example
 - Documentation
+- file hosting  
 
 ## Interaction Map
 ![interaction diagram](docs/interaction_diagram.png)
+
+## Resources
+Here are links for some of the frameworks/tools this project uses.  
+[FastAPI](https://fastapi.tiangolo.com/)  
+[SQLAlchemy](https://www.sqlalchemy.org/)  
+[Pydantic](https://docs.pydantic.dev/latest/)
+[Requests](https://requests.readthedocs.io/en/latest/user/quickstart/)  
