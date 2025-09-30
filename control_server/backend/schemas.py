@@ -30,6 +30,8 @@ class TaskSchema(BaseModel):
     status: str
     assigned_to: Optional[str] = None
     model_config = ConfigDict(from_attributes=True)
+    result1: Optional[dict] = None
+    result2: Optional[dict] = None
 
 class TaskResult(BaseModel):
     task_id: str

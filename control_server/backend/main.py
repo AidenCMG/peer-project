@@ -42,11 +42,6 @@ def heartbeat(hb: Heartbeat, db: Session = Depends(get_db)):
     return client
 
 
-#Goals for this rewrite
-#1. Each task needs to be verified by two seperate clients
-#2. This means we need to keep track of which clients have done the task
-#3. Remove task from pool once completed and verified.
-#4. If verification fails keep in pool until a consensus is reached
 
 @app.post("/get-task", response_model=TaskSchema) #Right now this doesn't care if it is verified by the same node
 def get_task(node_id: str, db: Session = Depends(get_db)):
@@ -77,7 +72,7 @@ def create_task(task_data: TaskCreate, db: Session = Depends(get_db), _: None = 
     return new_task
 
 
-#As part of this rework we need to have submit result distingush between a first and second submit
+
 @app.post("/submit-result", response_model=TaskSchema)
 def submit_result(result: TaskResult, db: Session = Depends(get_db)):
     task = db.query(Task).filter(Task.id == result.task_id).first()

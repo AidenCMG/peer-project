@@ -8,7 +8,8 @@ from pathlib import Path
 
 SERVER_URL = "http://127.0.0.1:8000"
 
-
+# Make file path optional in create task and batch create
+# Better way of naming fields 
 def create_task(command_args: list):
     parser = argparse.ArgumentParser(prog="create_task", description="Creates a new task on the server")
     parser.add_argument("-m", "--module", required=True, help="The name of the module for the task.")
@@ -103,7 +104,7 @@ def list_tasks(_):
     all_tasks = response.json()
     print(all_tasks)
     for task in all_tasks:
-        print(f"ID: {task["id"]}\nModule: {task["module"]}\nPayload: {task["payload"]}\nStatus: {task["status"]}\nAssigned to: {task["assigned_to"]}\n")
+        print(f"ID: {task["id"]}\nModule: {task["module"]}\nPayload: {task["payload"]}\nStatus: {task["status"]}\nAssigned to: {task["assigned_to"]}\nResult 1: {task["result1"]}\nVerified by: {task["verified_by"]}\nResult 2: {task["result2"]}\n")
 
 
 def list_clients(_):
