@@ -29,6 +29,7 @@ class TaskSchema(BaseModel):
     payload: dict
     status: str
     assigned_to: Optional[str] = None
+    verified_by: Optional[str] = None
     model_config = ConfigDict(from_attributes=True)
     result1: Optional[dict] = None
     result2: Optional[dict] = None
