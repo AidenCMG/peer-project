@@ -11,7 +11,7 @@ SERVER_URL = "http://127.0.0.1:8000"
 # Make file path optional in create task and batch create
 # Better way of naming fields 
 modules = {
-    "example_module.py": ["name"],
+    "example_module.py": {"fields":[],"needs_file":True},
 }
 
 #deprecated
@@ -42,39 +42,51 @@ def batch_create(command_args: list): #set chunks to 1 for 1 item per task
     parser = argparse.ArgumentParser(prog="batch_create", description="Creates tasks in batches")
     parser.add_argument("-m", "--module", required=True, help="The name of the module for the tasks.")
     parser.add_argument("-c", "--chunks", required=True, help="Size of chunks to use")
-    parser.add_argument("-l", "--label", required=True,  help="Label specifiying what the file is")
     parser.add_argument("--manual", required=False, help="Enables manual entry of task fields")
 
     args=parser.parse_args(command_args)
- 
-    payload_data = get_module_fields()
-    
-    chunker = make_chunker(int(args.chunks)) #make this upload specified filepath instead of returning list
-    
-    for chunk in chunker:
-        payload_data[args.label] = chunk
-
-        data_to_post = {
-            "module": args.module,
-            "payload": payload_data
-        }
-        requests.post(f"{SERVER_URL}/admin/create-task", json=data_to_post) #Swap this for file download url
-    
 
 
+    payload_data = get_module_fields(args.manual, args.module)
 
-def get_module_fields():
-    keepGoing = True
+    if modules[args.module]["needs_file"]:
+        file_chunker = make_chunker(int(args.chunks)) #make this upload specified filepath instead of returning list
+        
+        for chunk in file_chunker:
+            payload_data["files/contents"] = chunk
+
+            data_to_post = {
+                "module": args.module,
+                "payload": payload_data
+            }
+            requests.post(f"{SERVER_URL}/admin/create-task", json=data_to_post) #Swap this for file download url
+    else:
+        for i in range(args.chunks): #For modules that use repetitive data or commands
+            data_to_post = {
+                "module": args.module,
+                "payload": payload_data
+            }
+            requests.post(f"{SERVER_URL}/admin/create-task", json=data_to_post)
+
+
+
+
+def get_module_fields(manual_input: bool, module: str):
     data_holder = {}
-    while(keepGoing):
-        field_name = input("Enter the name of the field: ")
-        field_value = input("Enter the fields value: ")
-        data_holder[field_name] = field_value
+    if not manual_input:
+        for field in modules[module]["fields"]:
+            data_holder[field] = input(f"Enter the {field}:")
+    else:
+        keepGoing = True
+        while(keepGoing):
+            field_name = input("Enter the name of the field: ")
+            field_value = input("Enter the fields value: ")
+            data_holder[field_name] = field_value
 
-        response = input("Enter another field?\n1) Yes\n2) No\n")
-        if response == "2":
-            keepGoing = False
-            return data_holder
+            response = input("Enter another field?\n1) Yes\n2) No\n")
+            if response == "2":
+                keepGoing = False
+    return data_holder
         
 def make_chunker(chunk_size: int):
     path = Path(input("Enter path to file/files: "))
@@ -145,7 +157,7 @@ def dance_party(_):
 
 
 command_mapper = {
-    "create_task": create_task,
+    #"create_task": create_task,
     "list_tasks": list_tasks,
     "list_clients": list_clients,
     "dance_party": dance_party,
