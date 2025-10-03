@@ -10,12 +10,18 @@ SERVER_URL = "http://127.0.0.1:8000"
 
 # Make file path optional in create task and batch create
 # Better way of naming fields 
-def create_task(command_args: list):
+modules = {
+    "example_module.py": ["name"],
+}
+
+#deprecated
+"""def create_task(command_args: list):
     parser = argparse.ArgumentParser(prog="create_task", description="Creates a new task on the server")
     parser.add_argument("-m", "--module", required=True, help="The name of the module for the task.")
 
     args=parser.parse_args(command_args)
-    payload = get_payload()
+    if args.manual:
+        payload = get_payload()
     
     data_to_post = {
         "module": args.module,
@@ -23,11 +29,21 @@ def create_task(command_args: list):
     }
     requests.post(f"{SERVER_URL}/admin/create-task", json=data_to_post)
 
-def batch_create(command_args: list):
+    def get_payload():
+    label = input("Enter label: ")
+    path = input("Enter path to file: ")
+
+    common_data = get_module_fields()
+    common_data[label] = path
+    return (common_data)
+"""
+
+def batch_create(command_args: list): #set chunks to 1 for 1 item per task
     parser = argparse.ArgumentParser(prog="batch_create", description="Creates tasks in batches")
     parser.add_argument("-m", "--module", required=True, help="The name of the module for the tasks.")
     parser.add_argument("-c", "--chunks", required=True, help="Size of chunks to use")
     parser.add_argument("-l", "--label", required=True,  help="Label specifiying what the file is")
+    parser.add_argument("--manual", required=False, help="Enables manual entry of task fields")
 
     args=parser.parse_args(command_args)
  
@@ -45,13 +61,6 @@ def batch_create(command_args: list):
         requests.post(f"{SERVER_URL}/admin/create-task", json=data_to_post) #Swap this for file download url
     
 
-def get_payload():
-    label = input("Enter label: ")
-    path = input("Enter path to file: ")
-
-    common_data = get_module_fields()
-    common_data[label] = path
-    return (common_data)
 
 
 def get_module_fields():
