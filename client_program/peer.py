@@ -7,9 +7,7 @@ import os
 import json
 
 SERVER_URL = "http://127.0.0.1:8000"
-#1 Have client program read modules folder and import every module found --This only works if every module is in python
-#2 Use subprocess library to run all modules as seperate processes allowing modules to be any langugage 
-# If we do 2 then need to think about how we can quickly call each module when neccessary
+
 heartbeat_time_interval = 180 # seconds
 check_for_task_interval = 300 # seconds
 
@@ -98,12 +96,14 @@ def run_module_subprocess():
             command = ["java", "-cp", str(module_path.parent), module_path.stem, serialized_task]
         elif os.access(str(module_path), os.X_OK):
             command = [str(module_path)]
+
+        response = subprocess.run(command,capture_output=True,text=True,check=True)
     except subprocess.CalledProcessError as e:
         print(f"Stderr from child:\n{e.stderr}")
 
-    response = subprocess.run(command,capture_output=True,text=True,check=True)
+    
     #print(json.loads(response.stdout))
-    client_state["last_result"] = json.loads(response.stdout)
+    client_state["last_result"]["result"] = json.loads(response.stdout)
 
 
 def main():
