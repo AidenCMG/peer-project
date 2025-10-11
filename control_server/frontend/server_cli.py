@@ -102,17 +102,16 @@ def make_chunker(chunk_size: int):
             yield str_paths
             
     elif path.is_file():      #For text files
-        directory_name = Path("split_files")
-        directory_name.mkdir()
+        #directory_name = Path("split_files")
+        #directory_name.mkdir()
             
         file_contents = path.read_text()
         lines = file_contents.splitlines()
         for i in range(0,len(lines), chunk_size):
             chunk = lines[i:i+chunk_size]
-            file_path = directory_name/str(i)
-            file_path.write_text("\n".join(chunk))
-            
-            yield str(file_path)
+            #file_path = directory_name/str(i)
+            #file_path.write_text("\n".join(chunk))
+            yield chunk
         
     else:
         print("specified path does not exist")
