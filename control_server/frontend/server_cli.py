@@ -173,9 +173,11 @@ def run():
             keepGoing = False
         else:
             args = shlex.split(line)
-            print(args)
             command = args[0]
             command_args = args[1:]
-            command_mapper[command](command_args)
+            if command in command_mapper:
+                command_mapper[command](command_args)
+            else:
+                print(f"Unrecognzied command: '{command}' ")
 
 run()
