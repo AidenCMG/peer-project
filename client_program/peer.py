@@ -5,6 +5,7 @@ from pathlib import Path
 import subprocess
 import os
 import json
+import platform
 
 SERVER_URL = "http://127.0.0.1:8000"
 
@@ -29,11 +30,11 @@ supported_languages = {
 def register_client():
     data = {
     "hardware": {
-        "cpu": "placeholder cpu",
+        "cpu": platform.processor,
         "memory": "4gb",
         "gpu": "placeholder gpu"
     },
-    "installed_modules": ["placeholder_module"]
+    "installed_modules": client_state["installed_modules"]
     }
     response = requests.post(f"{SERVER_URL}/register", json=data)
     client_data = response.json()
@@ -107,10 +108,11 @@ def run_module_subprocess():
 
 
 def main():
+    get_installed_modules()
     register_client() #Make this one time only
     #Best way to do this?
     #config file?
-    get_installed_modules()
+    
 
     heartbeat_thread = threading.Thread(target=heartbeat_worker, daemon=True)
     heartbeat_thread.start()

@@ -7,7 +7,7 @@ from datetime import datetime
 class ClientRegister(BaseModel):
     #node_id: str
     hardware: dict[str,str]
-    installed_modules: list[str]
+    installed_modules: set[str]
     model_config = ConfigDict(from_attributes=True)
 
 class Heartbeat(BaseModel):
@@ -19,7 +19,7 @@ class ClientSchema(BaseModel):
     node_id: str
     status: str
     hardware: dict[str,str]
-    installed_modules: list[str]
+    installed_modules: set[str]
     last_seen: Optional[datetime] = None
     model_config = ConfigDict(from_attributes=True)
 
