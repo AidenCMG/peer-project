@@ -27,6 +27,22 @@ supported_languages = {
     #java
 }
 
+def safe_post(url, **kwargs):
+    try:
+        response = requests.post(url, **kwargs)
+        response.raise_for_status()
+        return response
+    except requests.exceptions.ConnectionError as e:
+        print(f"Connection error: {e}")
+        return None
+    except requests.exceptions.HTTPError as e:
+        print(f"HTTP error {response.status_code}: {e}")
+        return None
+    except Exception as e:
+        print(f"Unexpected error during request: {e}")
+        return None
+
+
 def register_client():
     data = {
     "hardware": {
@@ -36,21 +52,24 @@ def register_client():
     },
     "installed_modules": client_state["installed_modules"]
     }
-    response = requests.post(f"{SERVER_URL}/register", json=data)
-    client_data = response.json()
-    client_state["id"] = client_data["node_id"]
+    response = safe_post(f"{SERVER_URL}/register", json=data)
+    if response:
+        client_data = response.json()
+        client_state["id"] = client_data["node_id"]
+    
     
     
 def get_new_task():
-    response = requests.post(f"{SERVER_URL}/get-task",params={"node_id": client_state["id"]})
-    task_data = response.json()
-    if "detail" not in task_data:
-        #print(response.text)
-        #print(task_data["payload"]["image"]["file"])
-        client_state["current_tasks"].append(task_data)
-        return True
-
+    response = safe_post(f"{SERVER_URL}/get-task",params={"node_id": client_state["id"]})
+    if response:
+        task_data = response.json()
+        if "payload" in task_data:
+            #print(response.text)
+            #print(task_data["payload"]["image"]["file"])
+            client_state["current_tasks"].append(task_data)
+            return True
     return False
+    
 
 
 
@@ -60,7 +79,7 @@ def send_heartbeat():
     "node_id": client_state["id"],
     "status": client_state["currentStatus"]
     }
-    response = requests.post(f"{SERVER_URL}/heartbeat", json=data)
+    response = safe_post(f"{SERVER_URL}/heartbeat", json=data)
     #print(response.text)
     
 def submit_result():
@@ -68,12 +87,15 @@ def submit_result():
         "task_id": client_state["current_tasks"][0]["id"],
         "result": client_state["last_result"]
     }
-    response = requests.post(f"{SERVER_URL}/submit-result", json=data)
+    response = safe_post(f"{SERVER_URL}/submit-result", json=data)
 
 
 def heartbeat_worker():
     while True:
-        send_heartbeat()
+        try:
+            send_heartbeat()
+        except Exception as e:
+            print(f"Unexpected error while sending heartbeat: {e}")
         time.sleep(heartbeat_time_interval)
 
 def get_installed_modules():
@@ -101,7 +123,10 @@ def run_module_subprocess():
         response = subprocess.run(command,capture_output=True,text=True,check=True)
     except subprocess.CalledProcessError as e:
         print(f"Stderr from child:\n{e.stderr}")
-
+    except json.JSONDecodeError:
+        print("Error: invalid JSON output from module")
+    except Exception as e:
+        print(f"Unexpected error while running subprocess: {e}")
     
     #print(json.loads(response.stdout))
     client_state["last_result"]["result"] = json.loads(response.stdout)
