@@ -7,7 +7,7 @@ from datetime import datetime
 class ClientRegister(BaseModel):
     #node_id: str
     hardware: dict[str,str]
-    installed_modules: list[str]
+    installed_modules: set[str]
     model_config = ConfigDict(from_attributes=True)
 
 class Heartbeat(BaseModel):
@@ -19,7 +19,7 @@ class ClientSchema(BaseModel):
     node_id: str
     status: str
     hardware: dict[str,str]
-    installed_modules: list[str]
+    installed_modules: set[str]
     last_seen: Optional[datetime] = None
     model_config = ConfigDict(from_attributes=True)
 
@@ -29,7 +29,10 @@ class TaskSchema(BaseModel):
     payload: dict
     status: str
     assigned_to: Optional[str] = None
+    verified_by: Optional[str] = None
     model_config = ConfigDict(from_attributes=True)
+    result1: Optional[dict] = None
+    result2: Optional[dict] = None
 
 class TaskResult(BaseModel):
     task_id: str
