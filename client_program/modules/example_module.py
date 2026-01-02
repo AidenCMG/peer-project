@@ -2,7 +2,7 @@ import sys
 import json
 
 def example_function(task: dict):
-    names = task["files/contents"]
+    names = task["contents"]
     results_list = []
     for name in names:
         counter = 0
@@ -17,7 +17,10 @@ def example_function(task: dict):
             "backwards name": backwards_name
         }
         results_list.append(result)
-    print(json.dumps(results_list))
+        final_output = {
+            "processed_data": results_list
+        }
+    print(json.dumps(final_output))
 
 task = json.loads(sys.argv[1])
 example_function(task)

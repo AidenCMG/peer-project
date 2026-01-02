@@ -1,0 +1,214 @@
+import requests
+import time
+import threading
+from pathlib import Path
+import subprocess
+import os
+import json
+import platform
+import zipfile
+
+SERVER_URL = "http://127.0.0.1:8000"
+#ready to test file server functionality. Create example module that uses a file for input. 
+
+#refactor functions to be less coupled for easier testing.
+heartbeat_time_interval = 180 # seconds
+check_for_task_interval = 300 # seconds
+
+client_state = {
+    "id": "",
+    "currentStatus": "idle",
+    "current_tasks": [],
+    "installed_modules": set(), #Figure out why I made this a set instead of a list
+    "last_result": {},
+    "file_path": None
+}
+
+supported_languages = {
+    ".py": "python",
+    ".js": "nodejs",
+
+    #java
+}
+
+def safe_post(url, **kwargs):
+    try:
+        response = requests.post(url, **kwargs)
+        response.raise_for_status()
+        return response
+    except requests.exceptions.ConnectionError as e:
+        print(f"Connection error: {e}")
+        return None
+    except requests.exceptions.HTTPError as e:
+        print(f"HTTP error {response.status_code}: {e}")
+        return None
+    except Exception as e:
+        print(f"Unexpected error during request: {e}")
+        return None
+
+
+def register_client():
+    data = {
+    "hardware": {
+        "cpu": platform.processor(),
+        "memory": "4gb",
+        "gpu": "placeholder gpu"
+    },
+    "installed_modules": list(client_state["installed_modules"]) 
+    }
+    response = safe_post(f"{SERVER_URL}/register", json=data)
+    if response:
+        client_data = response.json()
+        client_state["id"] = client_data["node_id"]
+    
+    
+    
+def get_new_task():
+    response = safe_post(f"{SERVER_URL}/get-task",params={"node_id": client_state["id"]})
+    if response:
+        task_data = response.json()
+        if "payload" in task_data:
+            #print(response.text)
+            #print(task_data["payload"]["image"]["file"])
+            client_state["current_tasks"].append(task_data)
+            return True
+    return False
+    
+def get_file():
+    target_directory = Path("temp_files")
+    target_directory.mkdir()
+    try:
+        response = requests.get(f"{SERVER_URL}/download/{client_state["current_tasks"][0]["download_token"]}", stream=True)
+        response.raise_for_status()
+        cd_header = response.headers.get("content-disposition")
+
+        if cd_header:
+            filename = cd_header.split("filename=")[1].strip("'")
+        else:
+            filename = "download.zip"
+
+        filepath = target_directory/filename
+        with open(filepath,'wb') as f:
+            for chunk in response.iter_content(chunk_size=8192):
+                f.write(chunk)
+        return filepath
+    except Exception as e:
+        print(f"Error:{e}")
+        return None
+
+def unzip_file(file_to_unzip,target_directory):
+    #add error handling
+    with zipfile.ZipFile(file_to_unzip,"r") as zf:
+        zf.extractall(target_directory)
+    return target_directory
+
+def send_heartbeat():
+    data = {
+    "node_id": client_state["id"],
+    "status": client_state["currentStatus"]
+    }
+    response = safe_post(f"{SERVER_URL}/heartbeat", json=data)
+    #print(response.text)
+    
+def submit_result():
+    data = {
+        "task_id": client_state["current_tasks"][0]["id"],
+        "result": client_state["last_result"]
+    }
+    response = safe_post(f"{SERVER_URL}/submit-result", json=data)
+
+
+def heartbeat_worker():
+    while True:
+        try:
+            send_heartbeat()
+        except Exception as e:
+            print(f"Unexpected error while sending heartbeat: {e}")
+        time.sleep(heartbeat_time_interval)
+
+def get_installed_modules():
+    path = Path("client_program/modules")
+    directory_contents = list(path.iterdir())
+    for item in directory_contents:
+        client_state["installed_modules"].add(item.name)
+    #print(client_state["installed_modules"])
+
+
+
+
+def run_module_subprocess():
+    task_to_pass = client_state["current_tasks"][0]["payload"]
+    task_to_pass["file_path"] = str(client_state["file_path"])
+    serialized_task = json.dumps(task_to_pass)
+    module = client_state["current_tasks"][0]["module"]
+    module_path = Path(f"client_program/modules/{module}")
+    interpreter = supported_languages.get(module_path.suffix)
+    try:
+        if interpreter:
+            command = [interpreter, str(module_path), serialized_task]
+        elif module_path.suffix == ".class":
+            command = ["java", "-cp", str(module_path.parent), module_path.stem, serialized_task]
+        elif os.access(str(module_path), os.X_OK):
+            command = [str(module_path)]
+
+        response = subprocess.run(command,capture_output=True,text=True,check=True)
+    except subprocess.CalledProcessError as e:
+        print(f"Stderr from child:\n{e.stderr}")
+    except json.JSONDecodeError:
+        print("Error: invalid JSON output from module")
+    except Exception as e:
+        print(f"Unexpected error while running subprocess: {e}")
+    
+    #print(json.loads(response.stdout))
+    client_state["last_result"]["result"] = json.loads(response.stdout)
+
+
+def main():
+    get_installed_modules()
+    register_client() #Make this one time only
+    #Best way to do this?
+    #config file?
+    
+
+    heartbeat_thread = threading.Thread(target=heartbeat_worker, daemon=True)
+    heartbeat_thread.start()
+
+    keepGoing = True
+    while keepGoing:
+        if client_state["currentStatus"] == "idle":
+            print("Checking for new task...")
+            got_task = get_new_task()
+
+            if got_task:
+                print("Got task")
+                client_state["currentStatus"] = "busy"
+                send_heartbeat()
+                if client_state["current_tasks"][0]["download_token"]:
+                    zipped_filepath = get_file()
+                    temp_files_path = unzip_file(zipped_filepath,zipped_filepath.parent)
+                    client_state["file_path"] = temp_files_path
+                run_module_subprocess()
+                print("Task complete!\nSending results to server...")
+
+                submit_result()
+                client_state["currentStatus"] = "idle"
+                send_heartbeat()
+                print("Results submitted!")
+                
+                if temp_files_path:
+                    for item in temp_files_path:
+                        item.unlink()
+                    temp_files_path.rmdir()
+                    client_state["file_path"] = None
+            else:
+                print(f"No task available. Waiting {check_for_task_interval} seconds")
+                time.sleep(check_for_task_interval)
+    #shutdown
+
+
+#get_installed_modules()
+#client_state["current_tasks"].append({"name": "Aiden", "module": "example_module.py"})
+#run_module_subprocess()
+if __name__ == "__main__":
+    main()
+
