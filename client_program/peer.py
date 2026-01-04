@@ -95,8 +95,9 @@ class Peer:
                     f.write(chunk)
 
             with zipfile.ZipFile(filepath,"r") as zf:
-                zf.extractall()
-
+                zf.extractall(self.work_dir)
+            
+            return self.work_dir
         except Exception as e:
             print(f"File download failed: {e}")
             return None

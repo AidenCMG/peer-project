@@ -10,8 +10,10 @@ SERVER_URL = "http://127.0.0.1:8000"
 
 # Make file path optional in create task and batch create
 # Better way of naming fields 
+# Seperate filepath lists from regular lists in batch creation to allow easier parsing
 modules = {
-    "example_module.py": {"fields":[],"needs_file":True},
+    "example_module.py": {"fields":[],"needs_file":True,"needs_folder":False},
+    "fs_example_module.py": {"fields":[],"needs_file":False,"needs_folder":True},
 }
 
 #deprecated
@@ -50,16 +52,29 @@ def batch_create(command_args: list): #set chunks to 1 for 1 item per task
     payload_data = get_module_fields(args.manual, args.module)
 
     if modules[args.module]["needs_file"]:
-        file_chunker = make_chunker(int(args.chunks)) #make this upload specified filepath instead of returning list
+        file_chunker = make_file_chunker(int(args.chunks)) 
         
         for chunk in file_chunker:
-            payload_data["files/contents"] = chunk
+            payload_data["contents"] = chunk
 
             data_to_post = {
                 "module": args.module,
                 "payload": payload_data
             }
             requests.post(f"{SERVER_URL}/admin/create-task", json=data_to_post) #Swap this for file download url
+            
+    elif modules[args.module]["needs_folder"]:
+        folder_chunker = make_folder_chunker(int(args.chunks))
+
+        for chunk in folder_chunker:
+            file_paths = chunk
+
+            data_to_post = {
+                "module": args.module,
+                "payload": payload_data,
+                "file_paths": file_paths
+            }
+            requests.post(f"{SERVER_URL}/admin/create-task", json=data_to_post)
     else:
         for i in range(args.chunks): #For modules that use repetitive data or commands
             data_to_post = {
@@ -88,20 +103,10 @@ def get_module_fields(manual_input: bool, module: str):
                 keepGoing = False
     return data_holder
         
-def make_chunker(chunk_size: int):
+def make_file_chunker(chunk_size: int): #For text files
     path = Path(input("Enter path to file/files: "))
-    if path.is_dir():
-        directory_contents = list(path.iterdir())
-
-        for i in range(0, len(directory_contents),chunk_size):
-            chunk = directory_contents[i:i+chunk_size]
-
-            str_paths = []
-            for p in chunk:
-                str_paths.append(str(p))
-            yield str_paths
             
-    elif path.is_file():      #For text files
+    if path.is_file():      
         #directory_name = Path("split_files")
         #directory_name.mkdir()
             
@@ -112,12 +117,24 @@ def make_chunker(chunk_size: int):
             #file_path = directory_name/str(i)
             #file_path.write_text("\n".join(chunk))
             yield chunk
-        
     else:
         print("specified path does not exist")
-            
- 
 
+def make_folder_chunker(chunk_size: int): #Break folder contents into chunks
+    path = Path(input("Enter path to file/files: "))           
+ 
+    if path.is_dir():
+        directory_contents = list(path.iterdir())
+
+        for i in range(0, len(directory_contents),chunk_size):
+            chunk = directory_contents[i:i+chunk_size]
+
+            str_paths = []
+            for p in chunk:
+                str_paths.append(str(p))
+            yield str_paths
+    else: 
+        print("specified path does not exist")
     
 def list_tasks(_):
     response = requests.get(f"{SERVER_URL}/admin/tasks")
