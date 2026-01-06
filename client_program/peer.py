@@ -144,14 +144,15 @@ class Peer:
             response = subprocess.run(command,capture_output=True,text=True,check=True)
             #print(json.loads(response.stdout))
             self.last_result = json.loads(response.stdout)
-
+            return True
         except subprocess.CalledProcessError as e:
             print(f"Stderr from child:\n{e.stderr}")
         except json.JSONDecodeError:
             print("Error: invalid JSON output from module")
         except Exception as e:
             print(f"Unexpected error while running subprocess: {e}")
-
+        return False
+    
     def submit_result(self):
         data = {
             "task_id": self.current_task["id"],
@@ -183,9 +184,11 @@ class Peer:
 
                     try:
                         file_path = self.download_task_file()
-                        self.run_module_subprocess(file_path)
-                        print("Task complete. Submitting...")
-                        self.submit_result()
+                        if self.run_module_subprocess(file_path):
+                            print("Task complete. Submitting...")
+                            self.submit_result()
+                        else:
+                            print("Module execution failed...\nSkipping task...")
                     finally:
                         self.cleanup_files()
                         self.status = "idle"
