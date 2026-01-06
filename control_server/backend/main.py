@@ -1,9 +1,13 @@
 from fastapi import FastAPI, Depends, HTTPException, Request
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from .database import SessionLocal, engine
-from .models import Base, Client, Task
+from .models import Base, Client, Task, File
 from .schemas import ClientRegister, Heartbeat, ClientSchema, TaskResult, TaskSchema, TaskCreate
 import uuid
+import zipfile
+import io
+import os
 
 app = FastAPI()
 Base.metadata.create_all(bind=engine)
@@ -61,11 +65,21 @@ def get_task(node_id: str, db: Session = Depends(get_db)):
 
 @app.post("/admin/create-task", response_model=TaskSchema)
 def create_task(task_data: TaskCreate, db: Session = Depends(get_db), _: None = Depends(localhost_only)):
+    file_objects = []
+    if task_data.file_paths:
+        
+        for file_path in task_data.file_paths:
+            file_objects.append(File(path=file_path))
+
     new_task = Task(
-        module=task_data.module,
-        payload=task_data.payload,
-        status="pending"
-    )
+            module=task_data.module,
+            payload=task_data.payload,
+            status="pending",
+            files=file_objects
+        )    
+    if file_objects:
+       new_task.download_token=str(uuid.uuid4())
+
     db.add(new_task)
     db.commit()
     db.refresh(new_task)
@@ -103,6 +117,22 @@ def get_clients(db: Session = Depends(get_db), _: None = Depends(localhost_only)
 def get_tasks(db: Session = Depends(get_db), _: None = Depends(localhost_only)):
     return db.query(Task).all()
 
- 
+#May need to use zipped file to send all files at once. Look into later 
+@app.get("/download/{token}")
+def download_file(token: str, db: Session = Depends(get_db)):
+    task = db.query(Task).filter(Task.download_token==token).first()
+    if not task:
+        raise HTTPException(status_code=404, detail="Invalid token")
+    
+    zip_buffer = io.BytesIO()
+    with zipfile.ZipFile(zip_buffer, mode="w") as zip_file:
+        for file_obj in task.files:
+            archive_name = os.path.basename(file_obj.path)
+            zip_file.write(file_obj.path,arcname=archive_name)
+    zip_buffer.seek(0)
+
+    headers = {"Content-Disposition": f"attachement; filename='download_{token}.zip'"}
+
+    return StreamingResponse(zip_buffer, media_type="application/x-zip-compressed",headers=headers)
 
 #somehow add queue
