@@ -52,19 +52,24 @@ def heartbeat(hb: Heartbeat, db: Session = Depends(get_db)):
 @app.post("/get-task", response_model=TaskSchema) #Right now this doesn't care if it is verified by the same node
 def get_task(node_id: str, db: Session = Depends(get_db)):
     task = db.query(Task).filter(Task.assigned_to == None).first()
-    if not task:
-        unverified_task = db.query(Task).filter(Task.verified_by == None,Task.result1 != None).first()
-        if not unverified_task:
-            raise HTTPException(404, "No task available")
-        unverified_task.verified_by = node_id
-        unverified_task.status = "verifying"
+    if task:
+        task.assigned_to = node_id
+        task.assignment_time = time.time()
+        task.status = "running"
+        if not task.download_token:
+            task.download_token = str(uuid.uuid4())
         db.commit()
-        return unverified_task
-    task.assigned_to = node_id
-    task.assignment_time = time.time()
-    task.status = "running"
-    db.commit()
-    return task
+        return task
+    
+    verification_task = db.query(Task).filter(Task.verified_by == None,Task.result1 != None).first()
+    if verification_task:
+        verification_task.verified_by = node_id
+        verification_task.status = "verifying"
+        verification_task.download_token = str(uuid.uuid4())
+        db.commit()
+        return verification_task
+
+    raise HTTPException(404, "No task available")
 
 @app.post("/admin/create-task", response_model=TaskSchema)
 def create_task(task_data: TaskCreate, db: Session = Depends(get_db), _: None = Depends(localhost_only)):
@@ -126,18 +131,23 @@ def download_file(token: str, db: Session = Depends(get_db)):
     if not task:
         raise HTTPException(status_code=404, detail="Invalid token")
     
-    zip_buffer = io.BytesIO()
-    with zipfile.ZipFile(zip_buffer, mode="w") as zip_file:
-        for file_obj in task.files:
-            archive_name = os.path.basename(file_obj.path)
-            zip_file.write(file_obj.path,arcname=archive_name)
-    zip_buffer.seek(0)
+    try:
+        zip_buffer = io.BytesIO()
+        with zipfile.ZipFile(zip_buffer, mode="w") as zip_file:
+            for file_obj in task.files:
+                archive_name = os.path.basename(file_obj.path)
+                zip_file.write(file_obj.path,arcname=archive_name)
+        zip_buffer.seek(0)
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=500, detail="Server file missing")
+
+    task.download_token = None
+    db.commit()
 
     headers = {"Content-Disposition": f"attachement; filename='download_{token}.zip'"}
-
     return StreamingResponse(zip_buffer, media_type="application/x-zip-compressed",headers=headers)
 
-#somehow add queue
+
 
 # if task status running 24 hours after assignment reset status to pending
 def reset_tasks(db: Session):
