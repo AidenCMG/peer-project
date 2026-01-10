@@ -22,6 +22,7 @@ class Task(Base):
     download_token = Column(String, nullable=True)
     status = Column(String, default ="pending")
     assigned_to = Column(String, ForeignKey("clients.node_id"), nullable=True)
+    assignment_time = Column(float, nullable=True)
     verified_by = Column(String, ForeignKey("clients.node_id"), nullable=True)
     result1 = Column(JSON, nullable=True)
     result2 = Column(JSON, nullable=True)

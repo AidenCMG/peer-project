@@ -8,6 +8,8 @@ import uuid
 import zipfile
 import io
 import os
+import time
+import threading
 
 app = FastAPI()
 Base.metadata.create_all(bind=engine)
@@ -46,7 +48,7 @@ def heartbeat(hb: Heartbeat, db: Session = Depends(get_db)):
     return client
 
 
-
+#Rewrite this to be less confusing
 @app.post("/get-task", response_model=TaskSchema) #Right now this doesn't care if it is verified by the same node
 def get_task(node_id: str, db: Session = Depends(get_db)):
     task = db.query(Task).filter(Task.assigned_to == None).first()
@@ -59,6 +61,7 @@ def get_task(node_id: str, db: Session = Depends(get_db)):
         db.commit()
         return unverified_task
     task.assigned_to = node_id
+    task.assignment_time = time.time()
     task.status = "running"
     db.commit()
     return task
@@ -117,7 +120,6 @@ def get_clients(db: Session = Depends(get_db), _: None = Depends(localhost_only)
 def get_tasks(db: Session = Depends(get_db), _: None = Depends(localhost_only)):
     return db.query(Task).all()
 
-#May need to use zipped file to send all files at once. Look into later 
 @app.get("/download/{token}")
 def download_file(token: str, db: Session = Depends(get_db)):
     task = db.query(Task).filter(Task.download_token==token).first()
@@ -136,3 +138,28 @@ def download_file(token: str, db: Session = Depends(get_db)):
     return StreamingResponse(zip_buffer, media_type="application/x-zip-compressed",headers=headers)
 
 #somehow add queue
+
+# if task status running 24 hours after assignment reset status to pending
+def reset_tasks(db: Session):
+    timeout_value = time.time() - (24*3600)   #Hours to seconds
+    stale_tasks = db.query(Task).filter(Task.status == "running", Task.assignment_time < timeout_value)
+    stale_tasks.update(
+        {Task.status: "pending",
+        Task.assigned_to: None,
+        Task.verified_by: None,
+        Task.assignment_time: None}, synchronize_session=False)
+    db.commit()
+    
+def reset_task_loop():
+    while True:
+        db = SessionLocal()
+        try:
+            reset_tasks(db)
+        except Exception as e:
+            print(f"Error running background thread: {e}")
+        finally:
+            db.close()
+        time.sleep(24*3600)
+
+reset_thread = threading.Thread(target=reset_task_loop, daemon=True)
+reset_thread.start()
