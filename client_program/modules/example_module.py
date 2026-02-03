@@ -2,7 +2,7 @@ import sys
 import json
 
 def example_function(task: dict):
-    names = task["contents"]
+    names = task["names"]
     results_list = []
     for name in names:
         counter = 0
