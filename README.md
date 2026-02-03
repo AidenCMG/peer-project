@@ -1,5 +1,5 @@
 # The-PEER-Project
-Distributed computing project designed to share the resources of volunteers to achieve otherwise infeasible goals. Currently only the skeleton of the project has been laid out as a proof of concept. Stay tuned for updates!
+Distributed computing project designed to share the resources of volunteers to achieve otherwise infeasible goals. Stay tuned for updates!  
 
 
 ## How it works 
@@ -10,14 +10,12 @@ The server assembles all of the completed data into something useable. The end r
 Modules will be created based off of interest of contributors.  
 Anyone is welcome to create a new module. All modules will be reviewed before being accepted.
 
-## To do list 
-- Add security  
-- Implement a queue system
-- Expand on client program
-- Give admin cli more features  
-- Module example
+## To do list   
+- Replace current schemas  
+- Clean up admin cli    
+- Testing  
 - Documentation
-- file hosting  
+- Lots of refactoring   
 
 ## Interaction Map
 ![interaction diagram](docs/interaction_diagram.png)
@@ -32,8 +30,6 @@ Here are links for some of the frameworks/tools this project uses.
 ## Making your own module  
 There are a couple things to keep in mind when creating a module.
 1. How easily can your workload be divided up?  
-2. Think about the data that your module will need to function. How easily can we distribute out that data as tasks?    
-3. The task data will be passed to your module as json. You will need to handle parsing it into your languages native data structure (Python: dict, Java: hashmap, etc)  
-4. The result must be sent to stdout as a json string.  
-5. The main client program captures anything sent to stdout so if you need to print anything other than the result to the console make sure you are sending it to stderr.    
-6. If you have more questions reach out me
+2.  What would be a good batch size for your workload? How long should it take on average to complete a batch?  
+3. Think about the data that your module will need to function.   
+4. Refer to the [module guide](docs/module_guide.md) for guidelines on formatting  
