@@ -12,33 +12,10 @@ SERVER_URL = "http://127.0.0.1:8000"
 # Better way of naming fields 
 # Seperate filepath lists from regular lists in batch creation to allow easier parsing
 modules = {
-    "example_module.py": {"fields":[],"needs_file":True,"needs_folder":False},
+    "example_module.py": {"fields":[], "payload_field":"names","needs_file":True,"needs_folder":False},
     "fs_example_module.py": {"fields":[],"needs_file":False,"needs_folder":True},
 }
 
-#deprecated
-"""def create_task(command_args: list):
-    parser = argparse.ArgumentParser(prog="create_task", description="Creates a new task on the server")
-    parser.add_argument("-m", "--module", required=True, help="The name of the module for the task.")
-
-    args=parser.parse_args(command_args)
-    if args.manual:
-        payload = get_payload()
-    
-    data_to_post = {
-        "module": args.module,
-        "payload": payload
-    }
-    requests.post(f"{SERVER_URL}/admin/create-task", json=data_to_post)
-
-    def get_payload():
-    label = input("Enter label: ")
-    path = input("Enter path to file: ")
-
-    common_data = get_module_fields()
-    common_data[label] = path
-    return (common_data)
-"""
 
 def batch_create(command_args: list): #set chunks to 1 for 1 item per task
     parser = argparse.ArgumentParser(prog="batch_create", description="Creates tasks in batches")
@@ -55,7 +32,7 @@ def batch_create(command_args: list): #set chunks to 1 for 1 item per task
         file_chunker = make_file_chunker(int(args.chunks)) 
         
         for chunk in file_chunker:
-            payload_data["contents"] = chunk
+            payload_data[modules[args.module]["payload_field"]] = chunk
 
             data_to_post = {
                 "module": args.module,
