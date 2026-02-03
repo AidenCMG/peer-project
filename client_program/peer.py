@@ -5,7 +5,7 @@ from pathlib import Path
 import subprocess
 import os
 import json
-import platform
+import psutil
 import zipfile
 import shutil
 
@@ -48,13 +48,34 @@ class Peer:
             for item in path.iterdir():
                 self.installed_modules.add(item.name)
 
+    def _save_cfg(self):
+        to_write = {
+            "id": self.id
+        }
+        directory = Path(__file__).parent
+        file_path = directory/"cfg.json"
+        file_path.write_text(json.dumps(to_write))
+
+    def _load_cfg(self):
+        directory = Path(__file__).parent
+        file_path = directory/"cfg.json"
+        
+        try:
+            json_string = file_path.read_text()
+            config_settings = json.loads(json_string)
+            config_settings.get("id")
+        except Exception as e:
+            print("Error reading config file: {e}")
 
     def register(self):
         #Registers the client with the server.
+        if self.id:
+            return True
+        
         data = {
             "hardware": {
-                "cpu": platform.processor(),
-                "memory": "4gb", 
+                "cpu": psutil.cpu_count(),
+                "memory": psutil.virtual_memory().total, 
                 "gpu": "placeholder gpu"
             },
             "installed_modules": list(self.installed_modules)
